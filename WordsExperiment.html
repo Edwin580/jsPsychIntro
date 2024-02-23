@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My experiment</title>
+    <script src="https://unpkg.com/jspsych@7.3.4"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-image-keyboard-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-preload@1.1.3"></script>
+    <link href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body></body>
+  <script>
+    //initialize jsPsych
+    var jsPsych = initJsPsych({
+        on_finish: function(){
+            jsPsych.data.displayData(); //displays data when experiment ends(practical for debugging)
+        }
+    });
+    //Create timeline
+    var timeline = [];
+    /*
+    var preload ={
+        type: jsPsychPreload,
+        images: ['img/blue.png', 'img/orange.png']
+    };
+    timeline.push(preload);
+    */
+    //define welcome message
+    var welcome = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: "Welcome to the experiment. Press any key to begin"
+    };
+    //Pushes welcome trial to timeline, which adds it to end of the array
+    timeline.push(welcome);
+
+    //shows instructions to participants
+    var instructions = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+      <p>In this experiment, you will see different words.</p>
+        <p>If the word is a <strong>word</strong>, press the letter F.</p>
+        <p>If the word is a <strong>non-word</strong>, press the letter J.</p>
+        <p>Press any key to begin.</p>
+      `,
+      post_trial_gap: 2000
+    };
+    timeline.push(instructions);
+
+    //contains all different trials we want to run in test phase
+    var test_stimuli = [
+        { stimulus: "blicket", correct_response: 'j'}, //tagging data with "correct reponse"
+        { stimulus: "druviate", correct_response: 'j'},
+        { stimulus: "flimpish", correct_response: 'j'},
+        { stimulus: "gorptude", correct_response: 'j'},
+        { stimulus: "hiblinate", correct_response: 'j'},
+        { stimulus: "klorgish", correct_response: 'j'},
+        { stimulus: "mibulate", correct_response: 'j'},
+        { stimulus: "norpitude", correct_response: 'j'},
+        { stimulus: "plivinate", correct_response: 'j'},
+        { stimulus: "jibberate", correct_response: 'j'},
+        { stimulus: "apple", correct_response: 'f'},
+        { stimulus: "computer", correct_response: 'f'},
+        { stimulus: "university", correct_response: 'f'},
+        { stimulus: "surival", correct_response: 'f'},
+        { stimulus: "sponge", correct_response: 'f'},
+        { stimulus: "quintessential", correct_response: 'f'},
+        { stimulus: "serenity", correct_response: 'f'},
+        { stimulus: "epiphany", correct_response: 'f'},
+        { stimulus: "labyrint", correct_response: 'f'},
+        { stimulus: "ethereal", correct_response: 'f'}
+    ];
+
+    //Sets up fixation cross in between trials set to trial duration 
+    //Responses during fixation period are not valid
+    var fixation = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: '<div style = "font-size:60px;">+</div>',
+        choices: "NO_KEYS",
+        trial_duration: function(){
+            //takes an array of items to sample form and generates a new array of length N by sampling without replacement
+            return jsPsych.randomization.sampleWithoutReplacement([250, 500, 750, 1000, 1250, 1500, 1750, 2000], 1)[0];
+        },
+        data: {
+            task: 'fixation' //another useful type of tagging
+        }
+    };
+    
+    //Displays the circles: timelineVariable indicates that we want jsPsych to substitute the value with timeline variables
+    var test = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: jsPsych.timelineVariable('stimulus'),
+        choices: ['f','j'],
+        data: {
+            task: 'response', //tags each trial
+            correct_response: jsPsych.timelineVariable('correct_response') //gets appropriate "correct response" value for each trial
+        },
+        on_finish: function(data){
+            data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response); //function will receive object data per trial and can be manipulated inside the function
+        } //data.response = string represenation of key pressed and is compared to respective correct response
+    };
+
+    //Links the variables we declared in test_stimuli array with timelineVariable
+    var test_procedure = {
+        timeline: [fixation, test],
+        timeline_variables: test_stimuli,
+       
+        randomize_order: true //random
+        
+    };
+    //Add procedure to main timeline array but fixation and test already exist in test_procedure timeline.
+    timeline.push(test_procedure);
+
+    //Data aggregation
+    var debrief_block = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: function() {
+            var trials = jsPsych.data.get().filter({task: 'response'});
+            var word_trials = trials.filter({correct_response: "f"});
+            var non_word_trials = trials.filter({correct_response: "j"});
+            var correct_trials = trials.filter({correct: true});
+            var word_correct = word_trials.filter({correct: true});
+            var non_word_correct = non_word_trials.filter({correct: true});
+
+
+
+            var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+            var accuracy_word = Math.round(word_correct.count() / word_trials.count()*100);
+            var accuracy_non_word = Math.round(non_word_correct.count() / non_word_trials.count()*100);
+
+
+            var rt = Math.round(correct_trials.select('rt').mean());
+            var rt_word = Math.round(word_correct.select('rt').mean());
+            var rt_non_word = Math.round(non_word_correct.select('rt').mean());
+
+            return `<p>Overall Accuracy: ${accuracy}%</p>
+        <p>Word Trials Accuracy: ${accuracy_word}%</p>
+        <p>Non-word Trials Accuracy: ${accuracy_non_word}%</p>
+        <p>Average Response Time (Overall): ${rt}ms</p>
+        <p>Average Response Time (Word Trials): ${rt_word}ms</p>
+        <p>Average Response Time (Non-word Trials): ${rt_non_word}ms</p>
+        <p>Press any key to complete the experiment. Thank you!</p>`;
+
+        }
+    };
+    timeline.push(debrief_block);
+
+    //start experiment
+    jsPsych.run(timeline);
+
+
+  </script>
+</html>
